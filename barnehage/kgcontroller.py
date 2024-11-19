@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 from dbexcel import *
 from kgmodel import *
+from typing import List
+from pathlib import Path
+from pandas import DataFrame
 
 
 # CRUD metoder
@@ -83,6 +86,8 @@ def insert_soknad(s):
                                      s.tidspunkt_oppstart,
                                      s.brutto_inntekt]],
                 columns=soknad.columns), soknad], ignore_index=True)
+
+    # result = sjekk_soknad(soknad.iloc[0])
     
     return soknad
 
@@ -115,7 +120,30 @@ def select_barn(b_pnr):
     
     
 # --- Skriv kode for select_soknad her
-
+def select_alle_soknader() -> List[Soknad]:
+    """Returnerer en liste med alle søknader definert i databasen dbexcel."""
+    return soknad.apply(lambda r: Soknad(r['sok_id'],
+                                            Foresatt(r['foresatt_1'],
+                                                        forelder[forelder['foresatt_id'] == r['foresatt_1']]['foresatt_navn'].iloc[0],
+                                                        forelder[forelder['foresatt_id'] == r['foresatt_1']]['foresatt_adresse'].iloc[0],
+                                                        forelder[forelder['foresatt_id'] == r['foresatt_1']]['foresatt_tlfnr'].iloc[0],
+                                                        forelder[forelder['foresatt_id'] == r['foresatt_1']]['foresatt_pnr'].iloc[0]),
+                                            Foresatt(r['foresatt_2'],
+                                                        forelder[forelder['foresatt_id'] == r['foresatt_2']]['foresatt_navn'].iloc[0],
+                                                        forelder[forelder['foresatt_id'] == r['foresatt_2']]['foresatt_adresse'].iloc[0],
+                                                        forelder[forelder['foresatt_id'] == r['foresatt_2']]['foresatt_tlfnr'].iloc[0],
+                                                        forelder[forelder['foresatt_id'] == r['foresatt_2']]['foresatt_pnr'].iloc[0]),
+                                            Barn(r['barn_1'],
+                                                barn[barn['barn_id'] == r['barn_1']]['barn_pnr'].iloc[0]),
+                                            r['fr_barnevern'],
+                                            r['fr_sykd_familie'],
+                                            r['fr_sykd_barn'],
+                                            r['fr_annet'],
+                                            r['barnehager_prioritert'],
+                                            r['sosken__i_barnehagen'],
+                                            r['tidspunkt_oppstart'],
+                                            r['brutto_inntekt']),
+            axis=1).to_list()
 
 # ------------------
 # Update
@@ -128,12 +156,21 @@ def select_barn(b_pnr):
 # ----- Persistent lagring ------
 def commit_all():
     """Skriver alle dataframes til excel"""
+    result = {
+        'foresatt': forelder,
+        'barnehage': barnehage,
+        'barn': barn,
+        'soknad': soknad
+    }
+    
     with pd.ExcelWriter('kgdata.xlsx', mode='a', if_sheet_exists='replace') as writer:  
         forelder.to_excel(writer, sheet_name='foresatt')
         barnehage.to_excel(writer, sheet_name='barnehage')
         barn.to_excel(writer, sheet_name='barn')
         soknad.to_excel(writer, sheet_name='soknad')
-        
+
+    return result
+
 # --- Diverse hjelpefunksjoner ---
 def form_to_object_soknad(sd):
     """sd - formdata for soknad, type: ImmutableMultiDict fra werkzeug.datastructures
@@ -195,6 +232,49 @@ ImmutableMultiDict([('navn_forelder_1', 'asdf'),
                    sd.get('brutto_inntekt_husholdning'))
     
     return sok_1
+
+def kalkuler_barnehage_tilbud(sd: Soknad) -> bool:
+    har_fortrinnsrett = sd.fr_barnevern or sd.fr_sykd_familie or sd.fr_sykd_barn or sd.fr_annet
+    
+    if not sd.barnehager_prioritert and har_fortrinnsrett:
+        return True
+    
+    if sd.barnehager_prioritert is not None and sd.barnehager_prioritert is not np.nan:
+        global barnehage
+        
+        try:
+            barnehage_id = int(sd.barnehager_prioritert)
+            if barnehage[barnehage['barnehage_id'] == barnehage_id]['barnehage_ledige_plasser'].iloc[0] > 0:
+                return True
+        except:
+            return False
+
+    return False
+
+def hent_barnehage_statistikk(kommune: str) -> DataFrame:
+    FIL_NAVN = Path(__file__).parent / "ssb-barnehager-2015-2023-alder-1-2-aar.xlsm"
+    DATA_KOLONNER = ["2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023"]
+
+    def hent_data() -> DataFrame:
+
+        excel = pd.read_excel(FIL_NAVN, 
+                            sheet_name="KOSandel120000", 
+                            header=3, 
+                            names=["Kommune", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023"],
+                            na_values=[".", ".."])
+
+        return rens_data(excel)
+
+    def rens_data(data: DataFrame) -> DataFrame:
+        data[DATA_KOLONNER] = data[DATA_KOLONNER].map(lambda verdi: np.nan if verdi > 100 else verdi)
+        data[DATA_KOLONNER] = data[DATA_KOLONNER].map(lambda verdi: round(verdi, 2))
+        data = data.drop(data.index[730:])
+        data = data.dropna()
+
+        return data
+    
+    liste = hent_data()
+    return liste[liste["Kommune"] == kommune]
 
 # Testing
 def test_df_to_object_list():
