@@ -226,7 +226,7 @@ ImmutableMultiDict([('navn_forelder_1', 'asdf'),
                    sd.get('fortrinnsrett_sykdom_i_familien'),
                    sd.get('fortrinnsrett_sykdome_paa_barnet'),
                    sd.get('fortrinssrett_annet'),
-                   sd.get('liste_over_barnehager_prioritert_5'),
+                   sd.getlist('liste_over_barnehager_prioritert_5[]'),
                    sd.get('har_sosken_som_gaar_i_barnehagen'),
                    sd.get('tidspunkt_for_oppstart'),
                    sd.get('brutto_inntekt_husholdning'))
@@ -243,9 +243,10 @@ def kalkuler_barnehage_tilbud(sd: Soknad) -> bool:
         global barnehage
         
         try:
-            barnehage_id = int(sd.barnehager_prioritert)
-            if barnehage[barnehage['barnehage_id'] == barnehage_id]['barnehage_ledige_plasser'].iloc[0] > 0:
-                return True
+            for barnehage_id in sd.barnehager_prioritert:
+                barnehage_id = int(barnehage_id)
+                if barnehage[barnehage['barnehage_id'] == barnehage_id]['barnehage_ledige_plasser'].iloc[0] > 0:
+                    return True
         except:
             return False
 
