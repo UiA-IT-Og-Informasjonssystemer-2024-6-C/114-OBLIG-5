@@ -4,13 +4,22 @@
     {% for soknad, tilbud in data %} 
     
     <table border="1">
-    {% for attr in soknad.__dict__.keys() %}
-
-        <tr>
-            <th>{{ attr }}</th>
-            <td>{{ soknad.__dict__[attr] }}</td>
-        </tr>
-  {% endfor %} 
+    <tr>
+        <th>Foresatt 1</th>
+        <td>{{ soknad.foresatt_1.foresatt_navn }}</td>
+    </tr>
+    <tr>
+        <th>Foresatt 2</th>
+        <td>{{ soknad.foresatt_2.foresatt_navn }}</td>
+    </tr><tr>
+    <tr>
+        <th>Barn 1</th>
+        <td>{{ soknad.barn_1.barn_pnr }}</td>
+    </tr><tr>
+    <tr>
+        <th>Prioriterte Barnehager</th>
+        <td>{{ soknad.barnehager_prioritert }}</td>
+    </tr><tr>
 
     <tr>
         <th class="bg-red">Er det ledig plass?</th>
