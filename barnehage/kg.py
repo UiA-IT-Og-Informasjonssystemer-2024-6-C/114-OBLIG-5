@@ -23,6 +23,7 @@ def barnehager():
 def behandle():
     if request.method == 'POST':
         sd = request.form
+        sd.barnehager_prioritert = sd.getlist('liste_over_barnehager_prioritert_5[]')
         
         print(sd)
         
@@ -38,7 +39,8 @@ def behandle():
 
         return redirect(url_for('svar')) #[1]
     else:
-        return render_template('soknad.html')
+        barnehager = select_alle_barnehager()
+        return render_template('soknad.html', data=barnehager)
 
 @app.route('/svar')
 def svar():
