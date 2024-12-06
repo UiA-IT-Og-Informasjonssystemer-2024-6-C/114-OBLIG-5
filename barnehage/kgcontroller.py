@@ -270,7 +270,8 @@ def hent_barnehage_statistikk(kommune: str) -> DataFrame:
         data[DATA_KOLONNER] = data[DATA_KOLONNER].map(lambda verdi: np.nan if verdi > 100 else verdi)
         data[DATA_KOLONNER] = data[DATA_KOLONNER].map(lambda verdi: round(verdi, 2))
         data = data.drop(data.index[730:])
-        data = data.dropna()
+        data["Kommune"] = data["Kommune"].str.split(" ", n=1).str[1]
+        data["Kommune"] = data["Kommune"].str.replace(r"\s*\(.*\)", "", regex=True)
 
         return data
     
